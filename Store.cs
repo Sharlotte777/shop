@@ -18,7 +18,7 @@ internal class Program
 
         warehouse.Show();
 
-        Cart cart = shop.Cart();
+        Cart cart = new Cart(warehouse);
         cart.Add(iPhone12, 4);
         cart.Add(iPhone11, 3); 
 
@@ -32,8 +32,6 @@ internal class Program
 
 public class Good
 {
-    public string Name { get; private set; }
-
     public Good(string name)
     {
         if (name == null || name == "")
@@ -45,46 +43,60 @@ public class Good
             Name = name;
         }
     }
+
+    public string Name { get; private set; }
+}
+
+public interface IWarehouse
+{
+    List<Good> TakeGood(Good good, int count);
+    void Delive(Good good, int count);
 }
 
 public class Cart
 {
-    public readonly Shop Shop;
+    private readonly IWarehouse _warehouse;
+    private Dictionary<Good, int> _goods = new Dictionary<Good, int>();
 
-    private List<Good> _goods = new List<Good>();
-
-    public Cart(Shop shop)
+    public Cart(IWarehouse warehouse)
     {
-        Shop = shop;
+        _warehouse = warehouse;
     }
 
     public void Show()
     {
-        Console.WriteLine("Goods:\n");
+        Console.WriteLine("Товары в корзине:\n");
 
-        foreach (Good good in _goods)
+        foreach (var item in _goods)
         {
-            Console.WriteLine($"{good.Name}");
+            Console.WriteLine($"{item.Key.Name} - {item.Value}");
         }
     }
 
     public void Add(Good good, int count)
     {
-        List<Good> boughtGoods = Shop.Buy(good, count);
-
-        if (boughtGoods != null)
+        if (_goods.ContainsKey(good))
         {
-            foreach (Good boughtGood in boughtGoods)
-            {
-                _goods.Add(boughtGood);
-            }
+            _goods[good] += count;
+        }
+        else
+        {
+            _goods[good] = count;
         }
     }
 
-    public Shop Order() => Shop;
+    public Shop Order()
+    {
+        foreach (var item in _goods)
+        {
+            _warehouse.TakeGood(item.Key, item.Value);
+        }
+
+        return new Shop(_warehouse);
+    }
 }
 
-public class Warehouse
+public class Warehouse : IWarehouse
 {
     private List<Cell> _cells = new List<Cell>();
 
@@ -92,7 +104,7 @@ public class Warehouse
     {
         foreach (Cell cell in _cells)
         {
-            Console.WriteLine($"Good:{cell.Good.Name} - {cell.Count}");
+            Console.WriteLine($"Товар:{cell.Good.Name} - {cell.Count}");
         }
     }
 
@@ -139,31 +151,26 @@ public class Warehouse
 
 public class Shop
 {
-    public string Paylink { get; private set; } = "Random";
+    private readonly IWarehouse _warehouse;
 
-    private Warehouse _warehouse;
-
-    public Shop(Warehouse warehouse)
+    public Shop(IWarehouse warehouse)
     {
         _warehouse = warehouse;
     }
 
-    public Cart Cart() => new Cart(this);
-
-    public List<Good> Buy(Good good, int count) => _warehouse.TakeGood(good, count);
+    public string Paylink { get; private set; } = "Random";
 }
 
 public class Cell
 {
-    public readonly Good Good;
-
-    public int Count { get; private set; }
-
     public Cell(Good good, int count)
     {
         Good = good;
         Count = count;
     }
+
+    public Good Good { get; private set; }
+    public int Count { get; private set; }
 
     public void AddCount(int count)
     {
