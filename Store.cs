@@ -6,8 +6,8 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        Good iPhone12 = new Good("IPhone 12");
-        Good iPhone11 = new Good("IPhone 11");
+        Product iPhone12 = new Product("IPhone 12");
+        Product iPhone11 = new Product("IPhone 11");
 
         Warehouse warehouse = new Warehouse();
 
@@ -30,9 +30,9 @@ internal class Program
     }
 }
 
-public class Good
+public class Product
 {
-    public Good(string name)
+    public Product(string name)
     {
         if (name == null || name == "")
         {
@@ -49,14 +49,15 @@ public class Good
 
 public interface IWarehouse
 {
-    List<Good> TakeGood(Good good, int count);
-    void Delive(Good good, int count);
+    List<Product> TakeProduct(Product products, int count);
+    void Delive(Product product, int count);
+    int GetAvailableCount(Product product);
 }
 
 public class Cart
 {
     private readonly IWarehouse _warehouse;
-    private Dictionary<Good, int> _goods = new Dictionary<Good, int>();
+    private Dictionary<Product, int> _products = new Dictionary<Product, int>();
 
     public Cart(IWarehouse warehouse)
     {
@@ -67,32 +68,42 @@ public class Cart
     {
         Console.WriteLine("Товары в корзине:\n");
 
-        foreach (var item in _goods)
+        foreach (var item in _products)
         {
             Console.WriteLine($"{item.Key.Name} - {item.Value}");
         }
     }
 
-    public void Add(Good good, int count)
+    public void Add(Product product, int count)
     {
-        if (_goods.ContainsKey(good))
+        if (count <= 0)
         {
-            _goods[good] += count;
+            throw new ArgumentOutOfRangeException();
+        }
+
+        if (_warehouse.GetAvailableCount(product) < count)
+        {
+            throw new InvalidOperationException();
+        }
+
+        if (_products.ContainsKey(product))
+        {
+            _products[product] += count;
         }
         else
         {
-            _goods[good] = count;
+            _products[product] = count;
         }
     }
 
-    public Shop Order()
+    public Order Order()
     {
-        foreach (var item in _goods)
+        foreach (var item in _products)
         {
-            _warehouse.TakeGood(item.Key, item.Value);
+            _warehouse.TakeProduct(item.Key, item.Value);
         }
 
-        return new Shop(_warehouse);
+        return new Order();
     }
 }
 
@@ -104,13 +115,23 @@ public class Warehouse : IWarehouse
     {
         foreach (Cell cell in _cells)
         {
-            Console.WriteLine($"Товар:{cell.Good.Name} - {cell.Count}");
+            Console.WriteLine($"Товар:{cell.Product.Name} - {cell.Count}");
         }
     }
 
-    public List<Good> TakeGood(Good good, int count)
+    public int GetAvailableCount(Product product)
     {
-        var cell = _cells.FirstOrDefault(cell => cell.Good.Name == good.Name);
+        var cell = _cells.FirstOrDefault(cell => cell.Product.Name == product.Name);
+
+        if (cell == null)
+            return 0;
+        else
+            return cell.Count;
+    }
+
+    public List<Product> TakeProduct(Product good, int count)
+    {
+        var cell = _cells.FirstOrDefault(cell => cell.Product.Name == good.Name);
 
         if (cell == null)
         {
@@ -123,25 +144,25 @@ public class Warehouse : IWarehouse
         }
         else
         {
-            List<Good> goods = new List<Good>();
+            List<Product> products = new List<Product>();
             cell.Take(count);
 
             for (int i = 0; i < count; i++)
             {
-                goods.Add(new Good(cell.Good.Name));
+                products.Add(new Product(cell.Product.Name));
             }
 
-            return goods;
+            return products;
         }
     }
 
-    public void Delive(Good good, int count)
+    public void Delive(Product product, int count)
     {
-        var cell = _cells.FirstOrDefault(cell => cell.Good.Name == good.Name);
+        var cell = _cells.FirstOrDefault(cell => cell.Product.Name == product.Name);
 
         if (cell == null)
         {
-            _cells.Add(new Cell(good, count));
+            _cells.Add(new Cell(product, count));
             return;
         }
 
@@ -157,19 +178,17 @@ public class Shop
     {
         _warehouse = warehouse;
     }
-
-    public string Paylink { get; private set; } = "Random";
 }
 
 public class Cell
 {
-    public Cell(Good good, int count)
+    public Cell(Product product, int count)
     {
-        Good = good;
+        Product = product;
         Count = count;
     }
 
-    public Good Good { get; private set; }
+    public Product Product { get; private set; }
     public int Count { get; private set; }
 
     public void AddCount(int count)
@@ -186,5 +205,23 @@ public class Cell
         {
             Count -= count;
         }
+    }
+}
+
+public class Order
+{
+    private static readonly Random _random = new Random();
+
+    public Order()
+    {
+        Paylink = GeneratePaylink();
+    }
+
+    public string Paylink { get; private set; }
+
+    private string GeneratePaylink()
+    {
+        // Генерация случайной ссылки для оплаты
+        return $"https://payment.com/{_random.Next(1000, 9999)}";
     }
 }
